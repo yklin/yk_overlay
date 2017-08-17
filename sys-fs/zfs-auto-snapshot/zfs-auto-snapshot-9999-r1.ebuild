@@ -8,7 +8,7 @@ EGIT_REPO_URI="https://github.com/zfsonlinux/${PN}.git"
 
 inherit git-2
 
-DESCRIPTION="Automatic snapshots for ZFS on Linux"
+DESCRIPTION="ZFS Automatic Snapshot Service for Linux"
 HOMEPAGE="https://github.com/zfsonlinux/zfs-auto-snapshot"
 LICENSE="GPL-2"
 KEYWORDS="~amd64"
@@ -19,6 +19,12 @@ RDEPEND="sys-fs/zfs
 	virtual/cron"
 
 DOCS=( README )
+
+src_prepare() {
+	sed -i "s/date --utc +%F-%H%M/date +%F_%T/" src/zfs-auto-snapshot.sh || die
+	         #-YYYY-MM-DD-HHMM -YYYY-MM-DD-HH:MM:SS
+	sed -i "s/????????????????/????????????????????/" src/zfs-auto-snapshot.sh || die
+}
 
 src_install() {
 	# default
@@ -39,7 +45,7 @@ src_install() {
 
 	use default-exclude && for cronfile in /etc/cron.{d,daily,hourly,monthly,weekly}/${PN} ; do
 		einfo "adjust $cronfile ..."
-		sed -i "s/\(${PN}\)/\1 --default-exclude/" "${D}/$cronfile" || die
+		sed -i "s/\(${PN}\) --quiet/\1 --default-exclude --quiet/" "${D}/$cronfile" || die
 	done
 	# Remove execute flag for crontab files
 	fperms a-x /etc/cron.d/${PN}
