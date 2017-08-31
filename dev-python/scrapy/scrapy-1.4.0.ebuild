@@ -34,6 +34,7 @@ RDEPEND="
 	>=dev-python/cssselect-0.9[${PYTHON_USEDEP}]
 	>=dev-python/six-1.5.2[${PYTHON_USEDEP}]
 	dev-python/service_identity[${PYTHON_USEDEP}]
+	>=dev-python/pydispatcher-2.0.5[${PYTHON_USEDEP}]
 	"
 DEPEND="
 	dev-python/setuptools[${PYTHON_USEDEP}]
