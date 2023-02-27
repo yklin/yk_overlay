@@ -1,0 +1,12 @@
+Index: go/src/cmd/dist/buildtool.go
+===================================================================
+--- go.orig/src/cmd/dist/buildtool.go
++++ go/src/cmd/dist/buildtool.go
+@@ -214,6 +214,7 @@ func bootstrapBuildTools() {
+ 		"install",
+ 		"-gcflags=-l",
+ 		"-tags=math_big_pure_go compiler_bootstrap purego",
++		"-buildvcs=false",
+ 	}
+ 	if vflag > 0 {
+ 		cmd = append(cmd, "-v")
