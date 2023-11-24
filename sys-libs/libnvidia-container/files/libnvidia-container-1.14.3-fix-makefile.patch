@@ -1,0 +1,147 @@
+diff --git a/Makefile b/Makefile
+index a374cc0..ec3aeb9 100644
+--- a/Makefile
++++ b/Makefile
+@@ -14,22 +14,22 @@
+ 
+ .PHONY: all tools shared static deps install uninstall dist depsclean mostlyclean clean distclean
+ .DEFAULT_GOAL := all
+-
++STRIP  := @echo skipping: strip
+ ##### Global variables #####
+ 
+ WITH_NVCGO   ?= yes
+-WITH_LIBELF  ?= no
+-WITH_TIRPC   ?= no
++WITH_LIBELF  ?= yes
++WITH_TIRPC   ?= YES
+ WITH_SECCOMP ?= yes
+ 
+ ##### Global definitions #####
+ 
+-export prefix      = /usr/local
++export prefix      = /usr
+ export exec_prefix = $(prefix)
+ export bindir      = $(exec_prefix)/bin
+-export libdir      = $(exec_prefix)/lib
++export libdir      = $(exec_prefix)/lib64
+ export docdir      = $(prefix)/share/doc
+-export libdbgdir   = $(prefix)/lib/debug$(libdir)
++export libdbgdir   = $(prefix)/lib64/debug$(libdir)
+ export includedir  = $(prefix)/include
+ export pkgconfdir  = $(libdir)/pkgconfig
+ 
+@@ -62,6 +62,8 @@ LIB_SRCS     := $(SRCS_DIR)/driver.c        \
+                 $(SRCS_DIR)/error_generic.c \
+                 $(SRCS_DIR)/error.c         \
+                 $(SRCS_DIR)/ldcache.c       \
++                $(SRCS_DIR)/pci-sysfs.c     \
++                $(SRCS_DIR)/nvidia-modprobe-utils.c \
+                 $(SRCS_DIR)/nvc.c           \
+                 $(SRCS_DIR)/nvc_ldcache.c   \
+                 $(SRCS_DIR)/nvc_info.c      \
+@@ -141,7 +143,7 @@ CFLAGS   := -std=gnu11 -O2 -g -fdata-sections -ffunction-sections -fplan9-extens
+             -Wall -Wextra -Wcast-align -Wpointer-arith -Wmissing-prototypes -Wnonnull \
+             -Wwrite-strings -Wlogical-op -Wformat=2 -Wmissing-format-attribute -Winit-self -Wshadow \
+             -Wstrict-prototypes -Wunreachable-code -Wconversion -Wsign-conversion \
+-            -Wno-unknown-warning-option -Wno-format-extra-args -Wno-gnu-alignof-expression $(CFLAGS)
++            -Wno-unknown-warning-option -Wno-format-extra-args -Wno-gnu-alignof-expression -I/usr/include/tirpc $(CFLAGS)
+ LDFLAGS  := -Wl,-zrelro -Wl,-znow -Wl,-zdefs -Wl,--gc-sections $(LDFLAGS)
+ LDLIBS   := $(LDLIBS)
+ 
+@@ -149,8 +151,8 @@ LDLIBS   := $(LDLIBS)
+ LIB_CPPFLAGS       = -DNV_LINUX -isystem $(DEPS_DIR)$(includedir) -include $(BUILD_DEFS)
+ LIB_CFLAGS         = -fPIC
+ LIB_LDFLAGS        = -L$(DEPS_DIR)$(libdir) -shared -Wl,-soname=$(LIB_SONAME)
+-LIB_LDLIBS_STATIC  = -l:libnvidia-modprobe-utils.a
+-LIB_LDLIBS_SHARED  = -ldl -lcap
++#LIB_LDLIBS_STATIC  = -l:libnvidia-modprobe-utils.a
++LIB_LDLIBS_SHARED  = -ldl -lcap -ltirpc
+ ifeq ($(WITH_NVCGO), yes)
+ LIB_CPPFLAGS       += -DWITH_NVCGO
+ LIB_LDLIBS_SHARED  += -lpthread
+@@ -163,7 +165,7 @@ LIB_LDLIBS_STATIC  += -l:libelf.a
+ endif
+ ifeq ($(WITH_TIRPC), yes)
+ LIB_CPPFLAGS       += -isystem $(DEPS_DIR)$(includedir)/tirpc -DWITH_TIRPC
+-LIB_LDLIBS_STATIC  += -l:libtirpc.a
++# LIB_LDLIBS_STATIC  += -l:libtirpc.a
+ LIB_LDLIBS_SHARED  += -lpthread
+ endif
+ ifeq ($(WITH_SECCOMP), yes)
+@@ -178,7 +180,7 @@ LIB_LDLIBS_SHARED  += $(LDLIBS)
+ LIB_LDLIBS         = $(LIB_LDLIBS_STATIC) $(LIB_LDLIBS_SHARED)
+ 
+ # Binary flags (recursively expanded to handle target-specific flags)
+-BIN_CPPFLAGS       = -include $(BUILD_DEFS) $(CPPFLAGS)
++BIN_CPPFLAGS       = -include $(BUILD_DEFS) $(CPPFLAGS) -DWITH_TIRPC
+ BIN_CFLAGS         = -I$(SRCS_DIR) -fPIE -flto $(CFLAGS)
+ BIN_LDFLAGS        = -L. -pie $(LDFLAGS) -Wl,-rpath='$$ORIGIN/../$$LIB'
+ BIN_LDLIBS         = -l:$(LIB_SHARED) -ldl -lcap $(LDLIBS)
+@@ -255,15 +257,15 @@ static: $(LIB_STATIC)($(LIB_STATIC_OBJ))
+ 
+ deps: $(LIB_RPC_SRCS) $(BUILD_DEFS)
+ 	$(MKDIR) -p $(DEPS_DIR)
+-	$(MAKE) -f $(MAKE_DIR)/nvidia-modprobe.mk DESTDIR=$(DEPS_DIR) install
++	#$(MAKE) -f $(MAKE_DIR)/nvidia-modprobe.mk DESTDIR=$(DEPS_DIR) install
+ ifeq ($(WITH_NVCGO), yes)
+ 	$(MAKE) -f $(MAKE_DIR)/nvcgo.mk DESTDIR=$(DEPS_DIR) MAJOR=$(MAJOR) VERSION=$(VERSION) LIB_NAME=$(LIBGO_NAME) install
+ endif
+ ifeq ($(WITH_LIBELF), no)
+-	$(MAKE) -f $(MAKE_DIR)/elftoolchain.mk DESTDIR=$(DEPS_DIR) install
++	#$(MAKE) -f $(MAKE_DIR)/elftoolchain.mk DESTDIR=$(DEPS_DIR) install
+ endif
+ ifeq ($(WITH_TIRPC), yes)
+-	$(MAKE) -f $(MAKE_DIR)/libtirpc.mk DESTDIR=$(DEPS_DIR) install
++	#$(MAKE) -f $(MAKE_DIR)/libtirpc.mk DESTDIR=$(DEPS_DIR) install
+ endif
+ 
+ install: all
+@@ -280,7 +282,7 @@ ifeq ($(WITH_NVCGO), yes)
+ endif
+ 	$(LDCONFIG) -n $(DESTDIR)$(libdir)
+ 	# Install debugging symbols
+-	$(INSTALL) -m 644 $(DEBUG_DIR)/$(LIB_SONAME) $(DESTDIR)$(libdbgdir)
++	#$(INSTALL) -m 644 $(DEBUG_DIR)/$(LIB_SONAME) $(DESTDIR)$(libdbgdir)
+ 	# Install configuration files
+ 	$(MAKE_DIR)/$(LIB_PKGCFG).in "$(strip $(VERSION))" "$(strip $(LIB_LDLIBS_SHARED))" > $(DESTDIR)$(pkgconfdir)/$(LIB_PKGCFG)
+ 	# Install binary files
+diff --git a/mk/common.mk b/mk/common.mk
+index f6d5fbf..1b6357b 100644
+--- a/mk/common.mk
++++ b/mk/common.mk
+@@ -27,7 +27,7 @@ ifdef SOURCE_DATE_EPOCH
+ else
+     DATE := $(shell date -u --iso-8601=minutes)
+ endif
+-REVISION ?= $(shell git rev-parse HEAD)
++REVISION ?= f30a9f4ad1136ab50d048e7781af05a3ed060f24
+ COMPILER := $(realpath $(shell which $(CC)))
+ PLATFORM ?= $(shell uname -m)
+ 
+diff --git a/mk/nvcgo.mk b/mk/nvcgo.mk
+index 0060f0e..7ee6078 100644
+--- a/mk/nvcgo.mk
++++ b/mk/nvcgo.mk
+@@ -26,7 +26,8 @@ VERSION        := $(VERSION)
+ 
+ build:
+ 	$(RM) -rf $(SRCS_DIR)
+-	$(CP) -R $(CURDIR)/src/$(PREFIX) $(SRCS_DIR)
++	mkdir -p $(SRCS_DIR)
++	$(CP) -r $(CURDIR)/src/$(PREFIX)/. $(SRCS_DIR)
+ 	$(MAKE) -C $(SRCS_DIR) VERSION=$(VERSION) clean
+ 	$(MAKE) -C $(SRCS_DIR) VERSION=$(VERSION) build
+ 
+diff --git a/versions.mk b/versions.mk
+index 66b7b26..ad0f375 100644
+--- a/versions.mk
++++ b/versions.mk
+@@ -16,6 +16,7 @@ GIT_TAG ?= $(patsubst v%,%,$(shell git describe --tags 2>/dev/null))
+ GIT_COMMIT ?= $(shell git describe --match="" --dirty --long --always --abbrev=40 2> /dev/null || echo "")
+ 
+ LIB_NAME := libnvidia-container
++LIB_VERSION := 1.14.3
+ 
+ PARTS := $(subst -, ,$(GIT_TAG))
+ build_start = 2
